@@ -1,6 +1,7 @@
 from __future__ import absolute_import
 
 import bokeh.plotting as bp
+from pandas.api.types import is_datetime64_any_dtype, is_categorical_dtype
 
 from .compatibility import register_series_accessor
 
@@ -61,11 +62,23 @@ class BokehSeriesPlot(object):
         df = self._data.reset_index()
 
         x, y = df.columns = [str(c) for c in df.columns]
-        source = bp.ColumnDataSource.from_df(df)
+
+        x_data = df[x]
+        y_data = df[y]
+
+        axis_kwargs = {}
+        for axis, data in [('x', x_data), ('y', y_data)]:
+            if is_datetime64_any_dtype(data.dtype):
+                axis_kwargs['%s_axis_type' % axis] = 'datetime'
+            elif is_categorical_dtype(data.dtype):
+                raise ValueError("Categorical dtype not supported for line")
+
+        source = bp.ColumnDataSource({x: x_data, y: y_data})
 
         if fig is None:
             fig = bp.Figure(plot_height=height,
-                            plot_width=width)
+                            plot_width=width,
+                            **axis_kwargs)
 
         fig.line(x, y, source=source, **kwds)
 
